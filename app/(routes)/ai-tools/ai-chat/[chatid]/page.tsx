@@ -27,41 +27,69 @@ const page = () => {
   const onSend=async()=>{
     if (!userInput.trim()) return;
     setLoading(true);
-    // Add user message to the right
-    const userMsg = { content: userInput, role: 'user', type: 'text' };
-    setMessageList((prev) => [
-      ...prev,
-      userMsg
-    ]);
+    // Add user message
+    const newUserMessage = {content: userInput, role: 'user', type: 'text'};
+    const updatedList = [...messageList, newUserMessage];
+    setMessageList(updatedList);
     setUserInput("");
+
+    let newAssistantMessage;
     try {
       const result = await axios.post('/api/ai-career-chat-agent', {
-        userInput: userMsg.content
+        userInput: userInput
       });
-      // Add assistant response to the left
-      let assistantMsg = result.data;
-      // If the response is an object, try to extract the content property
-      if (typeof assistantMsg === 'object' && assistantMsg !== null) {
-        if ('content' in assistantMsg && typeof assistantMsg.content === 'string') {
-          assistantMsg = assistantMsg.content;
-        } else {
-          assistantMsg = JSON.stringify(assistantMsg);
-        }
+      // If the API returns an error, show it as a message
+      if (result.data?.error) {
+        newAssistantMessage = { content: "Error: " + result.data.error, role: 'assistant', type: 'text' };
+      } else if (typeof result.data === 'object') {
+        newAssistantMessage = { content: JSON.stringify(result.data), role: 'assistant', type: 'text' };
+      } else {
+        newAssistantMessage = { content: result.data, role: 'assistant', type: 'text' };
       }
-      setMessageList((prev) => [
-        ...prev,
-        { content: assistantMsg, role: 'assistant', type: 'text' }
-      ]);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      newAssistantMessage = { content: "Sorry, something went wrong with the assistant.", role: 'assistant', type: 'text' };
     }
+
+    const finalList = [...updatedList, newAssistantMessage];
+    setMessageList(finalList);
+    await updateMessageList(finalList);
+    setLoading(false);
   }
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!chatid) return;
+      try {
+        const res = await axios.get(`/api/history?recordId=${chatid}`);
+        if (res.data && Array.isArray(res.data.content)) {
+          setMessageList(res.data.content);
+        }
+      } catch (err) {
+        console.error('Failed to fetch chat history:', err);
+      }
+    };
+    fetchHistory();
+  }, [chatid])
+
 
   console.log(messageList);
   
   useEffect(()=>{
     //save message into database
+    messageList.length>0 && updateMessageList();
   },[messageList])
+
+  // Update updateMessageList to accept a list
+  const updateMessageList = async (list = messageList) => {
+    try {
+      await axios.put(`/api/history`,{
+        content: list,
+        recordId: chatid
+      });
+    } catch (err) {
+      console.error('Error updating history:', err);
+    }
+  }
 
   return (
     <div className='px-10 md:px-24 lg:px-36 xl:px-48'>
@@ -80,30 +108,31 @@ const page = () => {
         </div>
           }
 
-        <div className='flex-1 overflow-y-auto scrollbar-none'>
+        <div className='flex-1 overflow-y-auto scrollbar-none py-4'>
           {/* Message List */}
           {messageList?.map((message, index) => (
             <div
               key={index}
-              className={`flex mb-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex mb-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`p-3 rounded-lg gap-2 min-w-[120px] max-w-[80%] whitespace-pre-line shadow-md ${
-                  message.role === 'user'
-                    ? 'bg-gray-200 text-black rounded-lg'
-                    : 'bg-white text-black border border-gray-200'
-                }`}
+                className={
+                  `max-w-[70%] p-4 rounded-2xl shadow ` +
+                  (message.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-br-none'
+                    : 'bg-gray-100 text-gray-900 border border-gray-200 rounded-bl-none')
+                }
                 style={{ wordBreak: 'break-word' }}
               >
-                <span className="block text-xs font-semibold mb-1 text-gray-500">
-                  {message.role === 'assistant' && 'Assistant Msg'}
-                </span>
+                <div className="mb-1 text-xs font-semibold opacity-70">
+                  {message.role === 'assistant' ? 'AI Assistant' : 'You'}
+                </div>
                 {message.role === 'assistant' ? (
-                  <div className="prose prose-sm max-w-none text-base leading-relaxed">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <div className="prose prose-sm max-w-none text-base leading-relaxed whitespace-pre-line">
+                    <ReactMarkdown>{String(message.content)}</ReactMarkdown>
                   </div>
                 ) : (
-                  <span className="text-base leading-relaxed">{message.content}</span>
+                  <span className="text-base leading-relaxed whitespace-pre-line">{message.content}</span>
                 )}
               </div>
             </div>
@@ -125,4 +154,4 @@ const page = () => {
 
 export default page
 
-//1:43
+//2:07

@@ -10,6 +10,6 @@ export const HistoryTable = pgTable("historyTable", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     recordId: varchar({ length: 255 }).notNull(),
     content: json(),
-    userEmail: varchar({ length: 255 }),
-    createdAt: varchar({ length: 255 })
+    userEmail: varchar('userEmail').references(() => usersTable.email).notNull(),
+    createdAt: varchar({ length: 255 }).default(Date.now().toString()),
 })

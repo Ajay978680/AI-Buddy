@@ -29,12 +29,17 @@ const AiToolCard = ({tool}:AIToolProps) => {
   const onClickButton=async()=>{
     //create new record to history table
     const result: Response = await fetch('/api/history', {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         recordId: id,
         content: [],
+        userEmail: user?.primaryEmailAddress?.emailAddress || ""
       }),
     });
-    console.log(result);
+    console.log(await result.json());
     router.push(tool.path+"/"+id);
   }
 
@@ -43,9 +48,7 @@ const AiToolCard = ({tool}:AIToolProps) => {
         <Image src={tool.icon} alt={tool.name} width={40} height={40} className='w-10 h-10' />
         <h2 className='font-bold mt-2'>{tool.name}</h2>
         <p className='text-gray-400'>{tool.desc}</p>
-        <Link href={tool.path+"/"+id} >
-        <Button className='w-full mt-3'>{tool.button}</Button>
-        </Link>
+        <Button className='w-full mt-3' onClick={onClickButton}>{tool.button}</Button>
     </div>
   )
 }
